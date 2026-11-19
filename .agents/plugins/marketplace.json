@@ -1,0 +1,16 @@
+{
+  "name": "simple-bulgarian",
+  "interface": {
+    "displayName": "Simple Bulgarian"
+  },
+  "plugins": [
+    {
+      "name": "simple-bulgarian",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "description": "Зарежда правилата на Simple Bulgarian автоматично за всяка сесия на Codex.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|resume|clear|compact)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${PLUGIN_ROOT}\" ] && node \"${PLUGIN_ROOT}/src/hooks/simple-bulgarian-activate.js\" || true",
+            "timeout": 5,
+            "statusMessage": "Зареждане на Simple Bulgarian...",
+            "additionalContextLimit": 0
+          }
+        ]
+      }
+    ]
+  }
+}

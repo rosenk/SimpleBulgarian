@@ -1,0 +1,30 @@
+{
+  "name": "simple-bulgarian",
+  "version": "0.1.0",
+  "description": "Пишете прост, ясен български текст по образеца на ASD-STE100 Simplified Technical English: кратки изречения, една дума за едно значение, деятелен залог, условие преди команда, определение на всеки термин при първа употреба, без канцеларщина.",
+  "license": "MIT",
+  "keywords": [
+    "technical-writing",
+    "documentation",
+    "bulgarian",
+    "plain-language",
+    "ste"
+  ],
+  "skills": "./skills/",
+  "hooks": "./.codex-plugin/hooks.json",
+  "interface": {
+    "displayName": "Simple Bulgarian",
+    "shortDescription": "Ясен технически текст на български по правилата на ASD-STE100.",
+    "longDescription": "Зарежда автоматично правилата за прост български технически текст за документация, процедури, съобщения за грешки, ръководства, бележки към версии и доклади за инциденти.",
+    "category": "Productivity",
+    "capabilities": [
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Преработи този технически текст на прост български.",
+      "Напиши тази процедура по правилата на Simple Bulgarian.",
+      "Провери този документ за нарушения на правилата."
+    ],
+    "brandColor": "#00966E"
+  }
+}
