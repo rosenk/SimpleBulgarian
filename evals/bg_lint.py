@@ -90,9 +90,11 @@ NOUN_CHAIN = re.compile(
     r"(?<!\w)на\s+(?:[^\s.!?;:]+\s+){1,3}?на\s+(?:[^\s.!?;:]+\s+){1,3}?на(?!\w)", re.I)
 
 ROTATION_SETS = [
+    # Правило 8 засяга глагола в инструкцията („проверете“). Съществителното „проверка“ е термин и остава.
     ("провери-увери", [
-        ("провер", r"провер\w*"), ("верифиц", r"верифиц\w*"), ("валидир", r"валидир\w*"),
-        ("потвърд", r"потвърд\w*"), ("удостовер", r"удостовер\w*"),
+        ("провер", r"провер(?:ете|ите|и|явайте|явай)"), ("верифиц", r"верифицир(?:айте|ате|ай)"),
+        ("валидир", r"валидир(?:айте|ате|ай)"), ("потвърд", r"потвърд(?:ете|ите|и)"),
+        ("удостовер", r"удостовер(?:ете|ите|и)"),
         ("увер", r"увер(?:ете|и|явам|явайте|яват|ява)\s+се"),
     ]),
     ("конфигурация-настройки", [
@@ -104,15 +106,30 @@ ROTATION_RX = [(name, [(key, re.compile(word(rx), re.I)) for key, rx in members]
 LIMITS = {"procedural": 20, "descriptive": 25}
 
 
+LINT_OFF = re.compile(r"<!--\s*bg-lint off\s*-->.*?(<!--\s*bg-lint on\s*-->|\Z)", re.S)
+
+
+def blank(m):
+    """Заменя съвпадението с толкова нови редове, колкото има в него. Номерата на редовете остават верни."""
+    return "\n" * m.group(0).count("\n")
+
+
 def strip_code(text):
-    text = re.sub(r"\A---\n.*?\n---\n", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)  # YAML frontmatter
-    text = re.sub(r"„[^“\n]{0,300}“", " QUOTE ", text)  # цитатът е една дума (правило 8.6)
-    text = re.sub(r"```.*?```", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
-    text = re.sub(r"`[^`\n]+`", " CODESPAN ", text)  # една дума по правило 8.6
+    text = re.sub(r"\A---\n.*?\n---\n", blank, text, flags=re.S)  # YAML frontmatter
+    text = LINT_OFF.sub(blank, text)  # нарочно лоши примери и списъци със забранени думи
+    text = re.sub(r"<!--.*?-->", blank, text, flags=re.S)
+    text = re.sub(r"</(p|th|td|li|tr|div|h[1-6])>", ". ", text, flags=re.I)  # края на HTML блок е края на изречение
+    text = re.sub(r"</?[a-zA-Z][^>\n]*>", " ", text)
+    text = re.sub(r"^[ \t]*>[ \t]?", "", text, flags=re.M)  # цитираният блок се проверява като обикновен текст
+    # Цитатът и кодът са една дума (правило 8.6). Препинателният знак след тях не е отделна дума.
+    text = re.sub(r"„[^“\n]{0,300}“", " QUOTE", text)
+    text = re.sub(r"```.*?```", blank, text, flags=re.S)
+    text = re.sub(r"`[^`\n]+`", " CODESPAN", text)
     text = re.sub(r"^#+\s.*$", " ", text, flags=re.M)  # заглавията са изключени (8.6)
     text = re.sub(r"https?://\S+", " URL ", text)
-    text = re.sub(r"^\s*\|[\s:|-]+\|\s*$", " ", text, flags=re.M)  # разделител в таблица
-    text = re.sub(r"^\s*\|(.*)\|\s*$",
+    # [ \t] вместо \s: шаблонът не трябва да поглъща новите редове, иначе номерата на редовете се разминават.
+    text = re.sub(r"^[ \t]*\|[ \t:|-]+\|[ \t]*$", " ", text, flags=re.M)  # разделител в таблица
+    text = re.sub(r"^[ \t]*\|(.*)\|[ \t]*$",
                   lambda m: ". ".join(c.strip() for c in m.group(1).split("|") if c.strip()) + ". ",
                   text, flags=re.M)  # всяка клетка е отделна единица
     return text
@@ -343,6 +360,18 @@ def self_test():
     assert lint("---\nname: x\ndescription: " + "дума " * 40 + "\n---\nТекст.", "descriptive")["violations_total"] == 0
     assert lint("Това е правило за стила. Това е сила.", "descriptive")["violations_total"] == 0
     assert cyrillic_share(CLEAN_FIXTURE) > 0.9 and cyrillic_share("Run the migration.") == 0.0
+    off = "Преди:\n\n<!-- bg-lint off -->\n> " + SLOP_FIXTURE + "\n<!-- bg-lint on -->\n\nСлед:\n\n> Би трябвало да спрете."
+    off_hits = lint_detail(off, "procedural")
+    assert [(h["category"], h["line"]) for h in off_hits] == [("banned_modal", 10)], off_hits
+    assert lint("<!-- bg-lint off -->\n" + SLOP_FIXTURE, "procedural")["violations_total"] == 0
+    assert lint("> ## Заглавие\n>\n> Рестартирайте услугата.", "procedural")["violations_total"] == 0
+    assert lint("<table><tr><th>Без skill</th><th>Със skill</th></tr></table>\nТекст.", "descriptive")["violations_total"] == 0
+    table_lines = lint_detail("Текст.\n\n| А | Б |\n|---|---|\n| едно | две |\n\nБи трябвало да спрете.", "descriptive")
+    assert [h["line"] for h in table_lines] == [7], table_lines
+    assert lint("Проверката мина. Уверете се, че портът е отворен.", "procedural")["violations_total"] == 0
+    assert lint("Проверете порта. Уверете се, че портът е отворен.", "procedural")["violations"]["synonym_rotation"] == 1
+    quotes = "Потърсете " + ", ".join(["„би“"] * 14) + "."
+    assert lint(quotes, "descriptive")["violations"]["sentence_over_limit"] == 0
     print("self-test OK:", slop["violations_total"], "нарушения в текста със слоп, 0 в чистия текст")
 
 

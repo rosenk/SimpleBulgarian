@@ -12,4 +12,11 @@ jobs:
       - run: python3 evals/bg_lint.py --self-test
       - run: node --test src/hooks/simple-bulgarian-activate.test.js
       - run: python3 src/hooks/test_lint_hook.py
+      - name: Документацията минава собствения линтер
+        run: |
+          status=0
+          for f in $(git ls-files '*.md'); do
+            python3 evals/bg_lint.py --gate --detail "$f" > lint.json || { echo "::error file=$f::$f"; cat lint.json; status=1; }
+          done
+          exit $status
       - run: for f in .claude-plugin/*.json .codex-plugin/*.json .agents/plugins/*.json; do python3 -m json.tool "$f" > /dev/null; done

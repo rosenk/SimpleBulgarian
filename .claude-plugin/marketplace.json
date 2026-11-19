@@ -10,7 +10,7 @@
       "source": "./",
       "displayName": "Simple Bulgarian",
       "description": "Пишете прост, ясен български текст по образеца на ASD-STE100 Simplified Technical English: кратки изречения, една дума за едно значение, деятелен залог, условие преди команда, определение на всеки термин при първа употреба, без канцеларщина.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "MIT",
       "keywords": ["technical-writing", "documentation", "bulgarian", "plain-language", "ste"]
     }

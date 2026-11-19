@@ -118,6 +118,16 @@ def test_stop_flags_dash_and_bold():
     msg = json.loads(out)["systemMessage"]
     assert "тире" in msg and "удебеляване" in msg, msg
 
+def test_post_tool_use_skips_a_marked_bad_example():
+    with tempfile.TemporaryDirectory() as d:
+        path = pathlib.Path(d, "examples.md")
+        path.write_text("Преди:\n\n<!-- bg-lint off -->\n> " + SLOP + "<!-- bg-lint on -->\n\nСлед:\n\n> Изпълнете миграцията.\n",
+                        encoding="utf-8")
+        assert run(post(str(path)))[0] == 0
+        path.write_text(path.read_text(encoding="utf-8") + "\nБи трябвало да спрете.\n", encoding="utf-8")
+        code, out, err = run(post(str(path)))
+    assert code == 2 and "ред 11, banned_modal" in err, (code, err)
+
 def test_garbage_stdin_exits_zero():
     r = subprocess.run([sys.executable, str(HOOK)], input="not json", capture_output=True, text=True)
     assert r.returncode == 0
