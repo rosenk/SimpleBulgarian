@@ -8,10 +8,10 @@ Skill-ът работи във всеки агент, който чете ста
 
 ## Инсталиране
 
-Claude Code, от локалното копие на хранилището:
+Claude Code:
 
 ```bash
-claude plugin marketplace add ~/dev/SimpleBulgarian
+claude plugin marketplace add rosenk/SimpleBulgarian
 ```
 
 ```bash
@@ -23,7 +23,7 @@ Plugin-ът добавя hook при старта на сесията, пров�
 Codex:
 
 ```bash
-codex plugin marketplace add ~/dev/SimpleBulgarian
+codex plugin marketplace add rosenk/SimpleBulgarian
 ```
 
 ```bash
@@ -31,6 +31,8 @@ codex plugin add simple-bulgarian@simple-bulgarian
 ```
 
 Codex иска да одобрите hook-а преди първото му изпълнение. Hook-овете изискват Node.js и Python 3. Подробностите са в [`src/hooks/README.md`](src/hooks/README.md).
+
+Ако пазите локално копие на хранилището, можете да подадете пътя до него вместо `rosenk/SimpleBulgarian`, например `claude plugin marketplace add ~/src/SimpleBulgarian`.
 
 Само skill-а, без hook-ове: копирайте директорията `skills/simple-bulgarian` в директорията за skills на вашия агент (за Claude Code това е `~/.claude/skills/`).
 
