@@ -5,7 +5,8 @@
 изречението, забранени модални думи, минало неопределено време, страдателен
 залог със „съм“ и „бъда“, деепричастия, причастни обороти след запетая, точка
 и запетая, тирета между твърдения, съкращения („т.е.“, „напр.“), слоп и
-канцеларщина, условие след командата, верига от „на“ и смяна на синоними.
+канцеларщина, отглаголни съществителни вместо глагол, условие след командата,
+верига от „на“ и смяна на синоними.
 
 Граница: това е проход с регулярни изрази, а не граматичен анализатор. Той
 пропуска нарушения (няма проверка за част на речта и за членуване) и може да
@@ -51,16 +52,25 @@ NOT_PARTICIPLE = {
 }
 
 PASSIVE = re.compile(word(
-    r"(?:бъде|бъдат|бъдем|бъдете|беше|бяха|бил|била|било|били)\s+"
+    r"(?:бъде|бъдат|бъдем|бъдете|бе|беше|бяха|бил|била|било|били)\s+"
     r"\w+(?:[аяеи]н|[аяеи]т)(?:[аои]|ия|ият|ата|ото|ите)?"), re.I)
 
 GERUND = re.compile(word(r"\w{3,}[аеяиу]йки"), re.I)
 
 PARTICIPLE_CLAUSE = re.compile(r",\s*(\w+(?:ащ|ящ|ещ)(?:[аои]|ия|ият|ата|ото|ите)?)(?!\w)", re.I)
-NOT_CLAUSE = re.compile(r"^(следващ|подходящ|настоящ|предходящ|предстоящ|съществуващ|текущ|защото|нещо|още|общ|вещ|мощ|помощ|пещ)", re.I)
+# Нечленувано причастие в началото на изречението, после допълнение и запетая: „Засягащ въпроса за таксите, докладът…“.
+LEADING_CLAUSE = re.compile(r"(?:^|(?<=[.!?:]\s))[ \t]*(\w+(?:ащ|ящ|ещ)[аои]?)\s[^,.!?\n]{1,80},", re.M)
+NOT_CLAUSE = re.compile(r"^(следващ|подходящ|настоящ|предходящ|предстоящ|съществуващ|текущ|действащ|защото|нещо|още|общ|вещ|мощ|помощ|пещ)", re.I)
 
 ABBREV = re.compile(
     r"(?<!\w)(т\.\s?е\.|напр\.|и\s+т\.\s?н\.?|и\s+др\.|т\.\s?нар\.|e\.g\.|i\.e\.|etc\.?)(?=[\s,)]|$)", re.I)
+
+# Глагол и отглаголно съществително вместо един глагол (наръчникът на ЕК, съвет 6).
+NOMINAL = re.compile(word(
+    r"(?:извършван|провеждан|осъществяван|вземан|изготвян|предприеман)\w*\s+на|"
+    r"(?:прав|направ|провед|провежд|изготв|изготвя|вз[еи]м|предприем)\w*\s+"
+    r"(?:преглед|оценка|анализ|разследване|решение|смяна|промяна|избор|опит)\w*|"
+    r"(?:дад|дав)\w*\s+препоръка\w*"), re.I)
 
 SLOP_CORE = r"просто|лесно|елементарно|безпроблемно"
 SLOP_TSV = pathlib.Path(__file__).resolve().parent / "slop.tsv"
@@ -194,6 +204,9 @@ def lint_detail(text, text_type):
     for m in PARTICIPLE_CLAUSE.finditer(body):
         if not NOT_CLAUSE.match(m.group(1)):
             add("participle_clause", m, group=1)
+    for m in LEADING_CLAUSE.finditer(body):
+        if not NOT_CLAUSE.match(m.group(1)):
+            hits.append({"category": "participle_clause", "text": m.group(1), "line": line_of(m.start(1))})
     for m in re.finditer(";", body):
         add("semicolon", m)
     for m in DASH.finditer(body):
@@ -202,6 +215,8 @@ def lint_detail(text, text_type):
         add("abbreviation", m)
     for m in SLOP.finditer(body):
         add("slop_word", m)
+    for m in NOMINAL.finditer(body):
+        add("nominalization", m)
     for m in NOUN_CHAIN.finditer(body):
         add("noun_chain", m)
     for name, members in ROTATION_RX:
@@ -218,7 +233,7 @@ def lint_detail(text, text_type):
 
 CATEGORIES = (
     "sentence_over_limit", "trailing_condition", "banned_modal", "perfect_tense", "passive_voice",
-    "gerund", "participle_clause", "semicolon", "em_dash", "abbreviation", "slop_word", "noun_chain",
+    "gerund", "participle_clause", "semicolon", "em_dash", "abbreviation", "slop_word", "nominalization", "noun_chain",
     "synonym_rotation",
 )
 
@@ -370,6 +385,16 @@ def self_test():
     assert [h["line"] for h in table_lines] == [7], table_lines
     assert lint("Проверката мина. Уверете се, че портът е отворен.", "procedural")["violations_total"] == 0
     assert lint("Проверете порта. Уверете се, че портът е отворен.", "procedural")["violations"]["synonym_rotation"] == 1
+    # Примерите от наръчника на ЕК „Как да пишем ясно“.
+    assert lint("Този проект бе отхвърлен.", "descriptive")["violations"]["passive_voice"] == 1
+    assert lint("Ще проведем разследване и ще вземем решение.", "descriptive")["violations"]["nominalization"] == 2
+    assert lint("Извършването на оценка отне седмица.", "descriptive")["violations"]["nominalization"] == 1
+    assert lint("Парламентът даде препоръка на държавите.", "descriptive")["violations"]["nominalization"] == 1
+    assert lint("Засягащ въпроса за таксите, докладът е кратък.", "descriptive")["violations"]["participle_clause"] == 1
+    assert lint("Следващата стъпка, която е кратка, е последна.", "descriptive")["violations_total"] == 0
+    assert lint("Работещият процес, който спря, е стар.", "descriptive")["violations_total"] == 0
+    assert lint("Определен брой кандидати подадоха заявки в съответствие с правилата.", "descriptive")["violations"]["slop_word"] == 2
+    assert lint("Направете резервно копие. Прегледът мина.", "procedural")["violations_total"] == 0
     quotes = "Потърсете " + ", ".join(["„би“"] * 14) + "."
     assert lint(quotes, "descriptive")["violations"]["sentence_over_limit"] == 0
     print("self-test OK:", slop["violations_total"], "нарушения в текста със слоп, 0 в чистия текст")
